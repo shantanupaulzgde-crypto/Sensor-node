@@ -58,3 +58,19 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Sensor backend running on port ${PORT}`);
 });
+
+app.listen(PORT, () => {
+  console.log(`✅ Sensor backend running on port ${PORT}`);
+});
+
+// ── Keep Render alive (prevents sleep on free tier) ──────────
+const https = require('https');
+const SELF_URL = 'https://sensor-node.onrender.com/api/health';
+
+setInterval(() => {
+  https.get(SELF_URL, (res) => {
+    console.log(`[KEEP-ALIVE] Pinged self — status ${res.statusCode}`);
+  }).on('error', (e) => {
+    console.log('[KEEP-ALIVE] Ping failed:', e.message);
+  });
+}, 10 * 60 * 1000);
