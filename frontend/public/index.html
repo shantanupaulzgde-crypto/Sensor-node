@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Sensor Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050c14;
+      --panel: #091628;
+      --border: #0d3a5c;
+      --accent: #00d4ff;
+      --accent2: #00ff9d;
+      --accent3: #ff6b35;
+      --warn: #ffcc00;
+      --danger: #ff3d5a;
+      --text: #c8e8ff;
+      --muted: #4a7a9b;
+      --glow: 0 0 16px rgba(0,212,255,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.07) 2px,
+        rgba(0,0,0,0.07) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 32px;
+      background: rgba(9,22,40,0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 1.2rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-shadow: var(--glow);
+    }
+
+    .logo span { color: var(--accent2); }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .dot.live { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); animation: blink 1.4s infinite; }
+    .dot.offline { background: var(--danger); }
+
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #last-update {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    /* Section title */
+    .section-title {
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    /* Metal alert banner */
+    #metal-alert {
+      display: none;
+      background: linear-gradient(90deg, rgba(255,61,90,0.2), rgba(255,61,90,0.05));
+      border: 1px solid var(--danger);
+      border-radius: 8px;
+      padding: 14px 24px;
+      margin-bottom: 28px;
+      color: var(--danger);
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      animation: pulse-danger 0.8s infinite;
+      text-align: center;
+    }
+
+    @keyframes pulse-danger {
+      0%,100% { box-shadow: 0 0 12px rgba(255,61,90,0.3); }
+      50% { box-shadow: 0 0 30px rgba(255,61,90,0.7); }
+    }
+
+    /* Cards grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.3s;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--card-accent, var(--accent));
+      box-shadow: 0 0 12px var(--card-accent, var(--accent));
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: var(--card-accent, var(--accent));
+    }
+
+    .card-label {
+      font-size: 0.72rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: 'Share Tech Mono', monospace;
+      margin-bottom: 10px;
+    }
+
+    .card-value {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .card-value .unit {
+      font-size: 1rem;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    .card-history {
+      margin-top: 14px;
+      display: flex;
+      gap: 6px;
+      align-items: flex-end;
+      height: 36px;
+    }
+
+    .bar {
+      flex: 1;
+      background: var(--card-accent, var(--accent));
+      opacity: 0.6;
+      border-radius: 3px 3px 0 0;
+      min-height: 3px;
+      transition: height 0.4s ease;
+    }
+
+    .card-sparkline {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      letter-spacing: 1px;
+    }
+
+    /* Chart section */
+    .chart-section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 36px;
+    }
+
+    .chart-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover, .tab-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(0,212,255,0.06);
+    }
+
+    #chartCanvas {
+      width: 100%;
+      height: 220px;
+    }
+
+    /* Connection config panel */
+    .config-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 36px;
+    }
+
+    .config-panel h3 {
+      font-size: 0.85rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .config-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .config-row input {
+      background: rgba(0,212,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+      flex: 1;
+      min-width: 200px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .config-row input:focus { border-color: var(--accent); }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 10px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .config-note {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 12px;
+      font-family: 'Share Tech Mono', monospace;
+      line-height: 1.7;
+    }
+
+    .config-note code {
+      background: rgba(0,212,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent2);
+    }
+
+    /* ESP8266 code snippet */
+    .code-block {
+      background: #020a12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 14px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--accent2);
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.6;
+    }
+
+    .copy-btn {
+      font-size: 0.72rem;
+      padding: 5px 14px;
+      margin-top: 8px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: 'Share Tech Mono', monospace;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 14px 16px; }
+      .logo { font-size: 0.95rem; }
+      .status-bar { gap: 10px; font-size: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SENSOR<span>//</span>DASHBOARD</div>
+  <div class="status-bar">
+    <div id="conn-status"><span class="dot" id="status-dot"></span><span id="status-text">CONNECTING...</span></div>
+    <div id="last-update">--:--:--</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Node label -->
+  <div style="text-align:center;margin-bottom:24px;font-family:'Share Tech Mono',monospace;font-size:1rem;letter-spacing:3px;color:var(--accent);text-shadow:var(--glow);">
+    ◈ &nbsp; ENGINEERING COLLEGE SENSOR NODE &nbsp; ◈
+  </div>
+  <div id="metal-alert">⚠ METAL DETECTED ⚠</div>
+
+  <!-- Sensor Cards -->
+  <div class="section-title">// LIVE SENSOR READINGS</div>
+  <div class="grid">
+    <div class="card" style="--card-accent:#00d4ff">
+      <div class="card-label">Temperature</div>
+      <div class="card-value"><span id="v-temp">--</span><span class="unit">°C</span></div>
+      <div class="card-history" id="h-temp"></div>
+      <div class="card-sparkline" id="s-temp">history loading...</div>
+    </div>
+    <div class="card" style="--card-accent:#00ff9d">
+      <div class="card-label">Humidity</div>
+      <div class="card-value"><span id="v-hum">--</span><span class="unit">%</span></div>
+      <div class="card-history" id="h-hum"></div>
+      <div class="card-sparkline" id="s-hum">history loading...</div>
+    </div>
+    <div class="card" style="--card-accent:#ff9f43">
+      <div class="card-label">Toxic Gas 1 (Methane)</div>
+      <div class="card-value"><span id="v-mq4">--</span><span class="unit">raw</span></div>
+      <div class="card-history" id="h-mq4"></div>
+      <div class="card-sparkline" id="s-mq4">history loading...</div>
+    </div>
+    <div class="card" style="--card-accent:#ff6b6b">
+      <div class="card-label">Toxic Gas 2 (Carbon Monoxide)</div>
+      <div class="card-value"><span id="v-mq7">--</span><span class="unit">raw</span></div>
+      <div class="card-history" id="h-mq7"></div>
+      <div class="card-sparkline" id="s-mq7">history loading...</div>
+    </div>
+    <div class="card" style="--card-accent:#a29bfe">
+      <div class="card-label">CO2</div>
+      <div class="card-value"><span id="v-co2">--</span><span class="unit">ppm</span></div>
+      <div class="card-history" id="h-co2"></div>
+      <div class="card-sparkline" id="s-co2">history loading...</div>
+    </div>
+    <div class="card" style="--card-accent:#74b9ff">
+      <div class="card-label">Water Level</div>
+      <div class="card-value"><span id="v-dist">--</span><span class="unit">cm</span></div>
+      <div class="card-history" id="h-dist"></div>
+      <div class="card-sparkline" id="s-dist">history loading...</div>
+    </div>
+    <div class="card" style="--card-accent:#55efc4">
+      <div class="card-label">Water Flow</div>
+      <div class="card-value"><span id="v-flow">--</span><span class="unit">L/m</span></div>
+      <div class="card-history" id="h-flow"></div>
+      <div class="card-sparkline" id="s-flow">history loading...</div>
+    </div>
+    <div class="card" id="metal-card" style="--card-accent:#b2bec3">
+      <div class="card-label">Open / Close</div>
+      <div class="card-value" id="v-metal" style="font-size:1.5rem">--</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-section">
+    <div class="section-title">// TREND CHART (LAST 50 READINGS)</div>
+    <div class="chart-tabs">
+      <button class="tab-btn active" onclick="setChart('temp')">TEMP</button>
+      <button class="tab-btn" onclick="setChart('hum')">HUMIDITY</button>
+      <button class="tab-btn" onclick="setChart('mq4')">TOXIC GAS 1</button>
+      <button class="tab-btn" onclick="setChart('mq7')">TOXIC GAS 2</button>
+      <button class="tab-btn" onclick="setChart('co2')">CO2</button>
+      <button class="tab-btn" onclick="setChart('dist')">WATER LEVEL</button>
+      <button class="tab-btn" onclick="setChart('flow')">WATER FLOW</button>
+    </div>
+    <canvas id="chartCanvas"></canvas>
+  </div>
+
+  <!-- Config Panel -->
+  <div class="config-panel">
+    <h3>// API ENDPOINT CONFIG</h3>
+    <div class="config-row">
+      <input type="text" id="api-url" placeholder="https://your-backend.onrender.com" />
+      <button class="btn" onclick="saveApiUrl()">SAVE &amp; CONNECT</button>
+    </div>
+    <div class="config-note">
+      Set your backend URL above. Default tries the same host.<br>
+      For ESP8266 WiFi mode, use HTTP POST to <code id="endpoint-display">http://your-backend/api/data</code><br>
+      with JSON body: <code>{"temp":25.0,"hum":60.0,"mq4":300,"mq7":200,"co2":400,"dist":15.0,"flow":1.2,"metal":"NONE"}</code>
+    </div>
+    <div class="code-block" id="esp-code">// ESP8266 Arduino code snippet
+#include &lt;ESP8266WiFi.h&gt;
+#include &lt;ESP8266HTTPClient.h&gt;
+#include &lt;ArduinoJson.h&gt;
+
+const char* serverUrl = "YOUR_BACKEND_URL/api/data";
+
+void sendData(float t, float h, float mq4, float mq7, float co2, float dist, float flow, String metal) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    WiFiClient client;
+    http.begin(client, serverUrl);
+    http.addHeader("Content-Type", "application/json");
+
+    StaticJsonDocument&lt;256&gt; doc;
+    doc["temp"] = t;   doc["hum"] = h;
+    doc["mq4"] = mq4;  doc["mq7"] = mq7;
+    doc["co2"] = co2;  doc["dist"] = dist;
+    doc["flow"] = flow; doc["metal"] = metal;
+
+    String body;
+    serializeJson(doc, body);
+    int code = http.POST(body);
+    http.end();
+  }
+}</div>
+    <button class="btn copy-btn" onclick="copyCode()">COPY ESP8266 CODE</button>
+  </div>
+
+</main>
+
+<footer>SMART SENSOR DASHBOARD &nbsp;|&nbsp; BUILT FOR ESP8266 &nbsp;|&nbsp; AUTO-REFRESH 3s</footer>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────
+  let API_BASE = localStorage.getItem('sensorApiUrl') || window.location.origin;
+  let chartField = 'temp';
+  let historyData = [];
+
+  const fieldColors = {
+    temp: '#00d4ff', hum: '#00ff9d', mq4: '#ff9f43',
+    mq7: '#ff6b6b', co2: '#a29bfe', dist: '#74b9ff', flow: '#55efc4'
+  };
+
+  // ── Init ─────────────────────────────────────────────────────
+  document.getElementById('api-url').value = API_BASE;
+  updateEndpointDisplay();
+
+  function saveApiUrl() {
+    API_BASE = document.getElementById('api-url').value.replace(/\/$/, '');
+    localStorage.setItem('sensorApiUrl', API_BASE);
+    updateEndpointDisplay();
+    fetchData();
+  }
+
+  function updateEndpointDisplay() {
+    document.getElementById('endpoint-display').textContent = API_BASE + '/api/data';
+    // Update ESP code
+    document.getElementById('esp-code').textContent = document.getElementById('esp-code').textContent
+      .replace(/const char\* serverUrl = ".*?"/, `const char* serverUrl = "${API_BASE}/api/data"`);
+  }
+
+  // ── Fetch latest data ─────────────────────────────────────────
+  async function fetchData() {
+    try {
+      const [liveRes, histRes] = await Promise.all([
+        fetch(API_BASE + '/api/data'),
+        fetch(API_BASE + '/api/history')
+      ]);
+      if (!liveRes.ok) throw new Error();
+      const live = await liveRes.json();
+      historyData = await histRes.json();
+      updateUI(live);
+      setOnline();
+    } catch (e) {
+      setOffline();
+    }
+  }
+
+  function setOnline() {
+    document.getElementById('status-dot').className = 'dot live';
+    document.getElementById('status-text').textContent = 'LIVE';
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+  }
+
+  function setOffline() {
+    document.getElementById('status-dot').className = 'dot offline';
+    document.getElementById('status-text').textContent = 'OFFLINE';
+  }
+
+  // ── Update UI ─────────────────────────────────────────────────
+  function updateUI(d) {
+    document.getElementById('v-temp').textContent = d.temp.toFixed(1);
+    document.getElementById('v-hum').textContent = d.hum.toFixed(1);
+    document.getElementById('v-mq4').textContent = d.mq4.toFixed(0);
+    document.getElementById('v-mq7').textContent = d.mq7.toFixed(0);
+    document.getElementById('v-co2').textContent = d.co2.toFixed(0);
+    document.getElementById('v-dist').textContent = d.dist.toFixed(1);
+    document.getElementById('v-flow').textContent = d.flow.toFixed(2);
+
+    const metalEl = document.getElementById('v-metal');
+    const alert = document.getElementById('metal-alert');
+    const mcard = document.getElementById('metal-card');
+    if (d.metal === 'DETECTED') {
+      metalEl.textContent = '⚠ DETECTED';
+      metalEl.style.color = 'var(--danger)';
+      mcard.style.setProperty('--card-accent', 'var(--danger)');
+      alert.style.display = 'block';
+    } else {
+      metalEl.textContent = d.metal || 'NONE';
+      metalEl.style.color = 'var(--accent2)';
+      mcard.style.setProperty('--card-accent', '#b2bec3');
+      alert.style.display = 'none';
+    }
+
+    // Mini history bars from last 5 of historyData
+    const fields = ['temp','hum','mq4','mq7','co2','dist','flow'];
+    fields.forEach(f => {
+      const vals = historyData.slice(-5).map(r => r[f] || 0);
+      renderBars(f, vals);
+    });
+
+    drawChart();
+  }
+
+  function renderBars(field, vals) {
+    const container = document.getElementById('h-' + field);
+    const sparkline = document.getElementById('s-' + field);
+    if (!container) return;
+    const max = Math.max(...vals, 0.01);
+    container.innerHTML = '';
+    vals.forEach(v => {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.height = ((v / max) * 34 + 2) + 'px';
+      container.appendChild(bar);
+    });
+    if (sparkline) {
+      sparkline.textContent = vals.map(v => v.toFixed(1)).join(' → ');
+    }
+  }
+
+  // ── Canvas Chart ──────────────────────────────────────────────
+  function setChart(field) {
+    chartField = field;
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.onclick?.toString().includes(`'${field}'`));
+    });
+    drawChart();
+  }
+
+  function drawChart() {
+    const canvas = document.getElementById('chartCanvas');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+
+    ctx.clearRect(0, 0, W, H);
+
+    const data = historyData.map(r => r[chartField] || 0);
+    if (data.length < 2) {
+      ctx.fillStyle = '#4a7a9b';
+      ctx.font = '14px Share Tech Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText('Waiting for data...', W/2, H/2);
+      return;
+    }
+
+    const color = fieldColors[chartField] || '#00d4ff';
+    const pad = { top: 16, right: 16, bottom: 28, left: 50 };
+    const cW = W - pad.left - pad.right;
+    const cH = H - pad.top - pad.bottom;
+
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+
+    const xStep = cW / (data.length - 1);
+
+    function xPos(i) { return pad.left + i * xStep; }
+    function yPos(v) { return pad.top + cH - ((v - min) / range) * cH; }
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(13,58,92,0.8)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.top + (cH / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(W - pad.right, y);
+      ctx.stroke();
+      const val = max - (range / 4) * i;
+      ctx.fillStyle = '#4a7a9b';
+      ctx.font = '10px Share Tech Mono';
+      ctx.textAlign = 'right';
+      ctx.fillText(val.toFixed(1), pad.left - 6, y + 4);
+    }
+
+    // Fill gradient
+    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH);
+    grad.addColorStop(0, color + '40');
+    grad.addColorStop(1, color + '00');
+    ctx.beginPath();
+    ctx.moveTo(xPos(0), yPos(data[0]));
+    for (let i = 1; i < data.length; i++) {
+      ctx.lineTo(xPos(i), yPos(data[i]));
+    }
+    ctx.lineTo(xPos(data.length - 1), pad.top + cH);
+    ctx.lineTo(xPos(0), pad.top + cH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.moveTo(xPos(0), yPos(data[0]));
+    for (let i = 1; i < data.length; i++) {
+      ctx.lineTo(xPos(i), yPos(data[i]));
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Last point dot
+    const lx = xPos(data.length - 1), ly = yPos(data[data.length - 1]);
+    ctx.beginPath();
+    ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 16;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // X axis labels
+    ctx.fillStyle = '#4a7a9b';
+    ctx.font = '9px Share Tech Mono';
+    ctx.textAlign = 'center';
+    const step = Math.ceil(data.length / 8);
+    for (let i = 0; i < data.length; i += step) {
+      ctx.fillText(i + 1, xPos(i), H - 6);
+    }
+  }
+
+  // ── Copy ESP code ─────────────────────────────────────────────
+  function copyCode() {
+    const text = document.getElementById('esp-code').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event.target;
+      btn.textContent = 'COPIED!';
+      setTimeout(() => btn.textContent = 'COPY ESP8266 CODE', 2000);
+    });
+  }
+
+  // ── Polling ───────────────────────────────────────────────────
+  fetchData();
+  setInterval(fetchData, 3000);
+  window.addEventListener('resize', drawChart);
+</script>
+
+</body>
+</html>
